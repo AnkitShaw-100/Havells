@@ -23,7 +23,7 @@ export const addFish = async (req, res) => {
 
   try {
     const fish = await Fish.create({
-      sellerId: req.admin._id,
+      sellerId: req.user._id,
       name,
       description,
       category,
@@ -36,7 +36,7 @@ export const addFish = async (req, res) => {
       origin,
     });
 
-    console.log(`Fish item added: ${fish.name} by ${req.admin.email}`);
+    console.log(`Fish item added: ${fish.name} by ${req.user.email}`);
 
     return res.status(201).json({
       message: "Fish item added successfully",
@@ -52,7 +52,7 @@ export const addFish = async (req, res) => {
 export const getAllFish = async (req, res) => {
   try {
     const fish = await Fish.find({ isAvailable: true })
-      .populate("sellerId", "businessName email phone")
+      .populate("sellerId", "name email phone")
       .sort({ createdAt: -1 });
 
     return res.json({
@@ -68,7 +68,7 @@ export const getAllFish = async (req, res) => {
 // Get fish items by seller (Fish seller only)
 export const getSellerFish = async (req, res) => {
   try {
-    const fish = await Fish.find({ sellerId: req.admin._id }).sort({
+    const fish = await Fish.find({ sellerId: req.user._id }).sort({
       createdAt: -1,
     });
 
@@ -87,7 +87,7 @@ export const getFishById = async (req, res) => {
   try {
     const fish = await Fish.findById(req.params.id).populate(
       "sellerId",
-      "businessName email phone businessAddress"
+      "name email phone address"
     );
 
     if (!fish) {
@@ -111,7 +111,7 @@ export const updateFish = async (req, res) => {
     }
 
     // Check if seller owns this fish item
-    if (fish.sellerId.toString() !== req.admin._id.toString()) {
+    if (fish.sellerId.toString() !== req.user._id.toString()) {
       return res
         .status(403)
         .json({ message: "Not authorized to update this item" });
@@ -146,7 +146,7 @@ export const updateFish = async (req, res) => {
 
     fish = await fish.save();
 
-    console.log(`Fish item updated: ${fish.name} by ${req.admin.email}`);
+    console.log(`Fish item updated: ${fish.name} by ${req.user.email}`);
 
     return res.json({
       message: "Fish item updated successfully",
@@ -168,7 +168,7 @@ export const deleteFish = async (req, res) => {
     }
 
     // Check if seller owns this fish item
-    if (fish.sellerId.toString() !== req.admin._id.toString()) {
+    if (fish.sellerId.toString() !== req.user._id.toString()) {
       return res
         .status(403)
         .json({ message: "Not authorized to delete this item" });
@@ -176,7 +176,7 @@ export const deleteFish = async (req, res) => {
 
     await Fish.findByIdAndDelete(req.params.id);
 
-    console.log(`Fish item deleted: ${fish.name} by ${req.admin.email}`);
+    console.log(`Fish item deleted: ${fish.name} by ${req.user.email}`);
 
     return res.json({
       message: "Fish item deleted successfully",
@@ -207,12 +207,60 @@ export const searchFish = async (req, res) => {
     }
 
     const fish = await Fish.find(filter)
-      .populate("sellerId", "businessName email phone")
+      .populate("sellerId", "name email phone")
       .sort({ createdAt: -1 });
 
     return res.json({
       count: fish.length,
       fish,
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+// Get seller analytics
+export const getSellerAnalytics = async (req, res) => {
+  try {
+    const sellerId = req.user._id;
+
+    // Get total products
+    const totalProducts = await Fish.countDocuments({ sellerId });
+
+    // Get total quantity available
+    const quantityData = await Fish.aggregate([
+      { $match: { sellerId } },
+      { $group: { _id: null, totalQuantity: { $sum: "$quantity" } } },
+    ]);
+
+    const totalQuantity = quantityData[0]?.totalQuantity || 0;
+
+    // Get average price
+    const priceData = await Fish.aggregate([
+      { $match: { sellerId } },
+      { $group: { _id: null, avgPrice: { $avg: "$price" } } },
+    ]);
+
+    const avgPrice = priceData[0]?.avgPrice || 0;
+
+    // Get products by category
+    const productsByCategory = await Fish.aggregate([
+      { $match: { sellerId } },
+      { $group: { _id: "$category", count: { $sum: 1 } } },
+    ]);
+
+    // Get products by freshness
+    const productsByFreshness = await Fish.aggregate([
+      { $match: { sellerId } },
+      { $group: { _id: "$freshness", count: { $sum: 1 } } },
+    ]);
+
+    return res.json({
+      totalProducts,
+      totalQuantity,
+      avgPrice: parseFloat(avgPrice.toFixed(2)),
+      productsByCategory,
+      productsByFreshness,
     });
   } catch (error) {
     console.error(error);

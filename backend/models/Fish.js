@@ -4,7 +4,7 @@ const fishSchema = new mongoose.Schema(
   {
     sellerId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Admin",
+      ref: "User",
       required: [true, "Seller ID is required"],
     },
     name: {

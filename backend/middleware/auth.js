@@ -91,4 +91,24 @@ const checkVerified = (req, res, next) => {
   next();
 };
 
-export { protectUser, protectAdmin, checkVerified };
+// Middleware to check if user is a seller
+const checkSeller = (req, res, next) => {
+  if (req.user.role !== "seller") {
+    return res.status(403).json({
+      message: "Only sellers can access this resource",
+    });
+  }
+  next();
+};
+
+// Middleware to check if user is a buyer
+const checkBuyer = (req, res, next) => {
+  if (req.user.role !== "buyer") {
+    return res.status(403).json({
+      message: "Only buyers can access this resource",
+    });
+  }
+  next();
+};
+
+export { protectUser, protectAdmin, checkVerified, checkSeller, checkBuyer };

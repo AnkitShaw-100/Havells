@@ -14,7 +14,7 @@ export const registerUser = async (req, res) => {
     return res.status(400).json({ errors: errors.array() });
   }
 
-  const { email, password } = req.body;
+  const { email, password, role } = req.body;
 
   try {
     const userExists = await User.findOne({ email });
@@ -25,16 +25,18 @@ export const registerUser = async (req, res) => {
     const user = await User.create({
       email,
       password,
+      role: role || "buyer",
     });
 
     if (user) {
-      console.log(`User registered: ${user.email}`);
+      console.log(`User registered: ${user.email} as ${user.role}`);
       return res.status(201).json({
         _id: user._id,
         name: user.name,
         email: user.email,
         phone: user.phone,
         address: user.address,
+        role: user.role,
         token: generateToken(user._id),
       });
     }
@@ -78,6 +80,7 @@ export const loginUser = async (req, res) => {
       email: user.email,
       phone: user.phone,
       address: user.address,
+      role: user.role,
       token: generateToken(user._id),
     });
   } catch (error) {
@@ -100,6 +103,7 @@ export const getUserProfile = async (req, res) => {
       email: user.email,
       phone: user.phone,
       address: user.address,
+      role: user.role,
       createdAt: user.createdAt,
     });
   } catch (error) {
@@ -132,6 +136,7 @@ export const updateUserProfile = async (req, res) => {
       email: updatedUser.email,
       phone: updatedUser.phone,
       address: updatedUser.address,
+      role: updatedUser.role,
       token: generateToken(updatedUser._id),
     });
   } catch (error) {

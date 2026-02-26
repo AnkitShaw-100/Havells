@@ -1,30 +1,35 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+// eslint-disable-next-line no-unused-vars
 import { motion } from "framer-motion";
 import { Mail, Lock, LogIn } from "lucide-react";
+import { useAuth } from "../context/AuthContext";
 
 const Login = () => {
   const [form, setForm] = useState({
     email: "",
     password: "",
   });
+  const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const { login } = useAuth();
+  const navigate = useNavigate();
 
   const handleChange = (e) =>
     setForm({ ...form, [e.target.name]: e.target.value });
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    setError("");
+    setIsLoading(true);
 
-    const users = JSON.parse(localStorage.getItem("users")) || [];
-
-    const user = users.find(
-      (u) => u.email === form.email && u.password === form.password
-    );
-
-    if (user) {
-      alert("Login successful");
-    } else {
-      alert("Invalid credentials");
+    try {
+      await login(form.email, form.password);
+      navigate("/");
+    } catch (err) {
+      setError(err.message || "Login failed. Please try again.");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -43,6 +48,11 @@ const Login = () => {
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">
+              {error}
+            </div>
+          )}
 
           <div className="relative">
             <Mail className="absolute left-3 top-3.5 w-4 h-4 text-slate-400" />
@@ -51,8 +61,10 @@ const Login = () => {
               name="email"
               placeholder="Email"
               required
+              value={form.email}
               onChange={handleChange}
-              className="w-full pl-10 pr-4 py-3 border rounded-xl focus:ring-2 focus:ring-sky-400 outline-none"
+              disabled={isLoading}
+              className="w-full pl-10 pr-4 py-3 border rounded-xl focus:ring-2 focus:ring-sky-400 outline-none disabled:bg-slate-50"
             />
           </div>
 
@@ -63,18 +75,31 @@ const Login = () => {
               name="password"
               placeholder="Password"
               required
+              value={form.password}
               onChange={handleChange}
-              className="w-full pl-10 pr-4 py-3 border rounded-xl focus:ring-2 focus:ring-sky-400 outline-none"
+              disabled={isLoading}
+              className="w-full pl-10 pr-4 py-3 border rounded-xl focus:ring-2 focus:ring-sky-400 outline-none disabled:bg-slate-50"
             />
           </div>
 
           <motion.button
+            type="submit"
+            disabled={isLoading}
             whileTap={{ scale: 0.95 }}
             whileHover={{ scale: 1.02 }}
-            className="w-full flex items-center justify-center gap-2 bg-sky-500 text-white py-3 rounded-xl font-semibold"
+            className="w-full flex items-center justify-center gap-2 bg-sky-500 hover:bg-sky-600 text-white py-3 rounded-xl font-semibold disabled:bg-sky-400 disabled:cursor-not-allowed transition-colors"
           >
-            <LogIn className="w-4 h-4" />
-            Login
+            {isLoading ? (
+              <>
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                Logging in...
+              </>
+            ) : (
+              <>
+                <LogIn className="w-4 h-4" />
+                Login
+              </>
+            )}
           </motion.button>
         </form>
 

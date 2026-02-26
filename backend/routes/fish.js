@@ -1,6 +1,6 @@
 import express from "express";
 import { body } from "express-validator";
-import { protectAdmin } from "../middleware/auth.js";
+import { protectUser, checkSeller } from "../middleware/auth.js";
 import {
   addFish,
   getAllFish,
@@ -9,6 +9,7 @@ import {
   updateFish,
   deleteFish,
   searchFish,
+  getSellerAnalytics,
 } from "../controllers/fishController.js";
 
 const router = express.Router();
@@ -21,7 +22,8 @@ router.get("/:id", getFishById);
 // Protected routes (Fish sellers only)
 router.post(
   "/",
-  protectAdmin,
+  protectUser,
+  checkSeller,
   [
     body("name").trim().notEmpty().withMessage("Fish name is required"),
     body("description")
@@ -53,11 +55,14 @@ router.post(
   addFish
 );
 
-router.get("/seller/items", protectAdmin, getSellerFish);
+router.get("/seller/items", protectUser, checkSeller, getSellerFish);
+
+router.get("/seller/analytics", protectUser, checkSeller, getSellerAnalytics);
 
 router.put(
   "/:id",
-  protectAdmin,
+  protectUser,
+  checkSeller,
   [
     body("name").optional().trim().notEmpty(),
     body("description").optional().trim().notEmpty(),
@@ -80,6 +85,6 @@ router.put(
   updateFish
 );
 
-router.delete("/:id", protectAdmin, deleteFish);
+router.delete("/:id", protectUser, checkSeller, deleteFish);
 
 export default router;

@@ -2,12 +2,13 @@ import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 // eslint-disable-next-line no-unused-vars
 import { AnimatePresence, motion } from "framer-motion";
-import { ShoppingCart, Menu, X, Fish } from "lucide-react";
+import { ShoppingCart, Menu, X, Fish, LogOut } from "lucide-react";
 import { useCart } from "@/context/CartContext";
+import { useAuth } from "@/context/AuthContext";
 
 const navLinks = [
   { name: "Home", path: "/" },
-  { name: "Explore Fish", path: "/login" },
+  { name: "Explore Fish", path: "/explore" },
   { name: "About", path: "/about" },
   { name: "Contact", path: "/contact" },
 ];
@@ -16,6 +17,7 @@ const Navbar = () => {
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const { totalItems } = useCart();
+  const { isAuthenticated, user, logout } = useAuth();
   const location = useLocation();
 
   useEffect(() => {
@@ -26,7 +28,7 @@ const Navbar = () => {
 
   return (
     <motion.nav
-    initial={false}
+      initial={false}
       animate={{ y: 0 }}
       transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 bg-white/95 backdrop-blur-xl border-b border-slate-100 ${
@@ -56,9 +58,7 @@ const Navbar = () => {
             style={{ fontFamily: "'Sora', 'Nunito', sans-serif" }}
           >
             Aqua
-            <span className="transition-colors duration-400 text-sky-500">
-              Delight
-            </span>
+            <span className="text-sky-500">Delight</span>
           </span>
         </Link>
 
@@ -83,10 +83,8 @@ const Navbar = () => {
                   {link.name}
                 </span>
 
-                {/* Hover Background */}
                 <span className="absolute inset-0 rounded-lg bg-slate-100 opacity-0 group-hover:opacity-100 transition duration-300" />
 
-                {/* Animated Underline */}
                 <motion.span
                   className="absolute left-1/2 bottom-1 h-0.5 bg-sky-500 rounded-full"
                   initial={{ width: 0, x: "-50%" }}
@@ -102,7 +100,7 @@ const Navbar = () => {
         {/* Actions */}
         <div className="flex items-center gap-1">
           <Link
-            to="/login"
+            to="/cart"
             className="relative p-2.5 rounded-xl transition-all duration-300 hover:bg-slate-100 text-slate-500 hover:text-slate-800"
           >
             <ShoppingCart className="w-4.5 h-4.5" />
@@ -122,18 +120,43 @@ const Navbar = () => {
             </AnimatePresence>
           </Link>
 
-          {/* CTA Button */}
-          <Link
-            to="/login"
-            className="hidden md:flex ml-2 items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all duration-300 bg-sky-500 text-white hover:bg-sky-600 shadow-[0_2px_12px_0_rgba(14,165,233,0.3)] hover:shadow-[0_6px_24px_0_rgba(14,165,233,0.45)]"
-          >
-            Shop Now
-          </Link>
+          {isAuthenticated ? (
+            <div className="hidden md:flex items-center gap-2 ml-2">
+              <div className="flex flex-col items-end">
+                <div className="text-sm font-medium text-slate-700">
+                  {user?.name || user?.email}
+                </div>
+                <div className="text-xs text-sky-600 font-semibold capitalize">
+                  {user?.role}
+                </div>
+              </div>
+              <Link
+                to={user?.role === "seller" ? "/seller/dashboard" : "/user/dashboard"}
+                className="px-3 py-2 rounded-xl text-sm font-medium bg-sky-50 text-sky-600 hover:bg-sky-100 transition"
+              >
+                Dashboard
+              </Link>
+              <button
+                onClick={logout}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium bg-red-50 text-red-600 hover:bg-red-100 transition"
+              >
+                <LogOut className="w-4 h-4" />
+                Logout
+              </button>
+            </div>
+          ) : (
+            <Link
+              to="/login"
+              className="hidden md:flex ml-2 items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold bg-sky-500 text-white hover:bg-sky-600 transition shadow"
+            >
+              Login
+            </Link>
+          )}
 
-          {/* Mobile Menu Button */}
+          {/* Mobile Toggle */}
           <button
             onClick={() => setMobileOpen(!mobileOpen)}
-            className="md:hidden p-2.5 rounded-xl transition-all duration-300 hover:bg-slate-100 text-slate-700"
+            className="md:hidden p-2.5 rounded-xl hover:bg-slate-100 text-slate-700"
           >
             <AnimatePresence mode="wait" initial={false}>
               <motion.span
@@ -143,11 +166,7 @@ const Navbar = () => {
                 exit={{ rotate: 90, opacity: 0 }}
                 transition={{ duration: 0.15 }}
               >
-                {mobileOpen ? (
-                  <X className="w-5 h-5" />
-                ) : (
-                  <Menu className="w-5 h-5" />
-                )}
+                {mobileOpen ? <X /> : <Menu />}
               </motion.span>
             </AnimatePresence>
           </button>
@@ -162,45 +181,65 @@ const Navbar = () => {
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.25 }}
-            className="md:hidden overflow-hidden bg-white border-t border-slate-100"
+            className="md:hidden bg-white border-t border-slate-100"
           >
-            <div className="px-4 py-4 flex flex-col gap-1">
-              {navLinks.map((link, i) => {
+            <div className="px-4 py-4 flex flex-col gap-2">
+              {navLinks.map((link) => {
                 const isActive = location.pathname === link.path;
-
                 return (
-                  <motion.div
+                  <Link
                     key={link.name}
-                    initial={{ x: -12, opacity: 0 }}
-                    animate={{ x: 0, opacity: 1 }}
-                    transition={{ delay: i * 0.05 }}
+                    to={link.path}
+                    onClick={() => setMobileOpen(false)}
+                    className={`px-4 py-3 rounded-xl text-sm font-medium ${
+                      isActive
+                        ? "bg-sky-50 text-sky-600"
+                        : "text-slate-700 hover:bg-slate-100"
+                    }`}
                   >
-                    <Link
-                      to={link.path}
-                      onClick={() => setMobileOpen(false)}
-                      className={`flex items-center px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${
-                        isActive
-                          ? "bg-sky-50 text-sky-600 font-semibold"
-                          : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-                      }`}
-                    >
-                      {isActive && (
-                        <span className="w-1.5 h-1.5 rounded-full bg-sky-500 mr-2.5" />
-                      )}
-                      {link.name}
-                    </Link>
-                  </motion.div>
+                    {link.name}
+                  </Link>
                 );
               })}
 
-              <div className="mt-3 pt-3 border-t border-slate-100">
-                <Link
-                  to="/login"
-                  onClick={() => setMobileOpen(false)}
-                  className="block w-full text-center px-4 py-3 rounded-xl bg-sky-500 text-white text-sm font-semibold hover:bg-sky-600 transition-colors shadow-[0_2px_12px_0_rgba(14,165,233,0.3)]"
-                >
-                  Shop Now
-                </Link>
+              <div className="pt-3 border-t border-slate-100">
+                {isAuthenticated ? (
+                  <>
+                    <Link
+                      to={user?.role === "seller" ? "/seller/dashboard" : "/user/dashboard"}
+                      onClick={() => setMobileOpen(false)}
+                      className="block w-full px-4 py-3 rounded-xl bg-sky-50 text-sky-600 font-semibold text-center mb-2"
+                    >
+                      Dashboard
+                    </Link>
+                    <button
+                      onClick={() => {
+                        logout();
+                        setMobileOpen(false);
+                      }}
+                      className="w-full px-4 py-3 rounded-xl bg-red-50 text-red-600 font-semibold"
+                    >
+                      Logout
+                    </button>
+                  </>
+                ) : (
+                  <div className="flex gap-2">
+                    <Link
+                      to="/login"
+                      onClick={() => setMobileOpen(false)}
+                      className="flex-1 text-center px-4 py-3 rounded-xl border border-sky-500 text-sky-500"
+                    >
+                      Login
+                    </Link>
+                    <Link
+                      to="/signup"
+                      onClick={() => setMobileOpen(false)}
+                      className="flex-1 text-center px-4 py-3 rounded-xl bg-sky-500 text-white"
+                    >
+                      Sign Up
+                    </Link>
+                  </div>
+                )}
               </div>
             </div>
           </motion.div>

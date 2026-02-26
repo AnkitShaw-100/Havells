@@ -1,28 +1,37 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { User, Mail, Lock, UserPlus } from "lucide-react";
+import { useAuth } from "../context/AuthContext";
 
 const Signup = () => {
   const [form, setForm] = useState({
     name: "",
     email: "",
     password: "",
+    role: "buyer",
   });
+  const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const { register } = useAuth();
+  const navigate = useNavigate();
 
   const handleChange = (e) =>
     setForm({ ...form, [e.target.name]: e.target.value });
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    setError("");
+    setIsLoading(true);
 
-    const users = JSON.parse(localStorage.getItem("users")) || [];
-
-    users.push(form);
-
-    localStorage.setItem("users", JSON.stringify(users));
-
-    alert("Account created!");
+    try {
+      await register(form.name, form.email, form.password, form.role);
+      navigate("/");
+    } catch (err) {
+      setError(err.message || "Registration failed. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -50,6 +59,11 @@ const Signup = () => {
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">
+              {error}
+            </div>
+          )}
 
           <div className="relative">
             <User className="absolute left-3 top-3.5 w-4 h-4 text-slate-400" />
@@ -58,8 +72,10 @@ const Signup = () => {
               name="name"
               placeholder="Full Name"
               required
+              value={form.name}
               onChange={handleChange}
-              className="w-full pl-10 pr-4 py-3 border rounded-xl focus:ring-2 focus:ring-sky-400 outline-none"
+              disabled={isLoading}
+              className="w-full pl-10 pr-4 py-3 border rounded-xl focus:ring-2 focus:ring-sky-400 outline-none disabled:bg-slate-50"
             />
           </div>
 
@@ -70,8 +86,10 @@ const Signup = () => {
               name="email"
               placeholder="Email"
               required
+              value={form.email}
               onChange={handleChange}
-              className="w-full pl-10 pr-4 py-3 border rounded-xl focus:ring-2 focus:ring-sky-400 outline-none"
+              disabled={isLoading}
+              className="w-full pl-10 pr-4 py-3 border rounded-xl focus:ring-2 focus:ring-sky-400 outline-none disabled:bg-slate-50"
             />
           </div>
 
@@ -80,20 +98,65 @@ const Signup = () => {
             <input
               type="password"
               name="password"
-              placeholder="Password"
+              placeholder="Password (minimum 6 characters)"
               required
+              value={form.password}
               onChange={handleChange}
-              className="w-full pl-10 pr-4 py-3 border rounded-xl focus:ring-2 focus:ring-sky-400 outline-none"
+              disabled={isLoading}
+              className="w-full pl-10 pr-4 py-3 border rounded-xl focus:ring-2 focus:ring-sky-400 outline-none disabled:bg-slate-50"
             />
           </div>
 
+          <div className="space-y-3">
+            <label className="text-sm font-semibold text-slate-700">
+              Account Type
+            </label>
+            <div className="flex gap-4">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="role"
+                  value="buyer"
+                  checked={form.role === "buyer"}
+                  onChange={handleChange}
+                  disabled={isLoading}
+                  className="w-4 h-4 cursor-pointer"
+                />
+                <span className="text-sm text-slate-700">Buyer</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="role"
+                  value="seller"
+                  checked={form.role === "seller"}
+                  onChange={handleChange}
+                  disabled={isLoading}
+                  className="w-4 h-4 cursor-pointer"
+                />
+                <span className="text-sm text-slate-700">Seller</span>
+              </label>
+            </div>
+          </div>
+
           <motion.button
+            type="submit"
+            disabled={isLoading}
             whileTap={{ scale: 0.95 }}
             whileHover={{ scale: 1.02 }}
-            className="w-full flex items-center justify-center gap-2 bg-sky-500 text-white py-3 rounded-xl font-semibold"
+            className="w-full flex items-center justify-center gap-2 bg-sky-500 hover:bg-sky-600 text-white py-3 rounded-xl font-semibold disabled:bg-sky-400 disabled:cursor-not-allowed transition-colors"
           >
-            <UserPlus className="w-4 h-4" />
-            Create Account
+            {isLoading ? (
+              <>
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                Creating account...
+              </>
+            ) : (
+              <>
+                <UserPlus className="w-4 h-4" />
+                Create Account
+              </>
+            )}
           </motion.button>
         </form>
 
