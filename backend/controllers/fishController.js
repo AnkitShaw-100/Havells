@@ -1,5 +1,6 @@
 import { validationResult } from "express-validator";
 import Fish from "../models/Fish.js";
+import { generateRecipeVideos } from "../utils/geminiService.js";
 
 // Add new fish item (Fish seller only)
 export const addFish = async (req, res) => {
@@ -17,11 +18,22 @@ export const addFish = async (req, res) => {
     unit,
     freshness,
     harvestDate,
-    image,
     origin,
+    recipeVideoUrl,
   } = req.body;
 
   try {
+    // Handle Cloudinary image upload
+    let image = null;
+    console.log("📝 Request file:", req.file); // Debug log
+    
+    if (req.file) {
+      image = req.file.secure_url;
+      console.log("🖼️  Image URL:", image); // Debug log
+    } else {
+      console.log("⚠️  No file was uploaded"); // Debug log
+    }
+
     const fish = await Fish.create({
       sellerId: req.user._id,
       name,
@@ -34,33 +46,47 @@ export const addFish = async (req, res) => {
       harvestDate,
       image,
       origin,
+      recipeVideoUrl,
     });
 
-    console.log(`Fish item added: ${fish.name} by ${req.user.email}`);
+    console.log(`✅ Fish item added: ${fish.name} by ${req.user.email}`);
 
     return res.status(201).json({
       message: "Fish item added successfully",
       fish,
     });
   } catch (error) {
-    console.error(error);
-    return res.status(500).json({ message: "Server error" });
+    console.error("❌ Error adding fish:", error);
+    return res.status(500).json({ message: "Server error: " + error.message });
   }
 };
 
 // Get all fish items (public)
 export const getAllFish = async (req, res) => {
   try {
-    const fish = await Fish.find({ isAvailable: true })
+    let fish = await Fish.find({ isAvailable: true })
       .populate("sellerId", "name email phone")
       .sort({ createdAt: -1 });
+
+    // Generate recipe videos in background (non-blocking)
+    fish.forEach((item) => {
+      if (!item.recipeVideos || item.recipeVideos.length === 0) {
+        generateRecipeVideos(item.name)
+          .then((videos) => {
+            item.recipeVideos = videos;
+            item.save().catch((err) => console.error("Error saving recipe videos:", err));
+            console.log(`✅ Recipe videos generated for ${item.name}`);
+          })
+          .catch((err) => console.error("Error generating recipe videos:", err));
+      }
+    });
 
     return res.json({
       count: fish.length,
       fish,
     });
   } catch (error) {
-    console.error(error);
+    console.error("❌ Error fetching all fish:", error);
     return res.status(500).json({ message: "Server error" });
   }
 };
@@ -85,7 +111,7 @@ export const getSellerFish = async (req, res) => {
 // Get single fish item (public)
 export const getFishById = async (req, res) => {
   try {
-    const fish = await Fish.findById(req.params.id).populate(
+    let fish = await Fish.findById(req.params.id).populate(
       "sellerId",
       "name email phone address"
     );
@@ -94,9 +120,20 @@ export const getFishById = async (req, res) => {
       return res.status(404).json({ message: "Fish item not found" });
     }
 
+    // Generate recipe videos using Gemini AI if not already present (non-blocking)
+    if (!fish.recipeVideos || fish.recipeVideos.length === 0) {
+      generateRecipeVideos(fish.name)
+        .then((videos) => {
+          fish.recipeVideos = videos;
+          fish.save().catch((err) => console.error("Error saving recipe videos:", err));
+          console.log(`✅ Recipe videos generated for ${fish.name}`);
+        })
+        .catch((err) => console.error("Error generating recipe videos:", err));
+    }
+
     return res.json(fish);
   } catch (error) {
-    console.error(error);
+    console.error("❌ Error fetching fish:", error);
     return res.status(500).json({ message: "Server error" });
   }
 };
@@ -126,9 +163,9 @@ export const updateFish = async (req, res) => {
       unit,
       freshness,
       harvestDate,
-      image,
       origin,
       isAvailable,
+      recipeVideoUrl,
     } = req.body;
 
     fish.name = name || fish.name;
@@ -139,8 +176,14 @@ export const updateFish = async (req, res) => {
     fish.unit = unit || fish.unit;
     fish.freshness = freshness || fish.freshness;
     fish.harvestDate = harvestDate || fish.harvestDate;
-    fish.image = image || fish.image;
+    
+    // Handle Cloudinary image upload
+    if (req.file) {
+      fish.image = req.file.secure_url;
+    }
+    
     fish.origin = origin || fish.origin;
+    fish.recipeVideoUrl = recipeVideoUrl || fish.recipeVideoUrl;
     fish.isAvailable =
       isAvailable !== undefined ? isAvailable : fish.isAvailable;
 

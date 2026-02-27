@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
+  ArrowRight,
   MapPin,
   Phone,
   Mail,
@@ -210,6 +211,39 @@ const Checkout = () => {
             >
               <ArrowLeft className="w-4 h-4" />
               Continue Shopping
+            </button>
+          </motion.div>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
+
+  if (!token || !user) {
+    return (
+      <div className="min-h-screen bg-white flex flex-col">
+        <Navbar />
+        <div className="flex-1 flex items-center justify-center px-4 py-20">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="text-center max-w-md"
+          >
+            <div className="w-20 h-20 rounded-2xl bg-amber-50 flex items-center justify-center mx-auto mb-6">
+              <AlertCircle className="w-10 h-10 text-amber-400" />
+            </div>
+            <h1 className="text-3xl font-bold text-slate-900 mb-3">
+              Login Required
+            </h1>
+            <p className="text-slate-500 mb-8">
+              Please log in to your account to complete your purchase.
+            </p>
+            <button
+              onClick={() => navigate("/login", { state: { from: "checkout" } })}
+              className="inline-flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-semibold text-white bg-sky-500 hover:bg-sky-600 transition-all duration-300 shadow-lg"
+            >
+              Go to Login
+              <ArrowRight className="w-4 h-4" />
             </button>
           </motion.div>
         </div>

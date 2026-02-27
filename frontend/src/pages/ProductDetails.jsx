@@ -13,24 +13,48 @@ import {
   MapPin,
   User,
   Check,
+  Loader,
+  Play,
+  ExternalLink,
+  AlertCircle,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { useCart } from "@/context/CartContext";
+import { useAuth } from "@/context/AuthContext";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+
+// Helper function to extract YouTube video ID
+const getYoutubeVideoId = (url) => {
+  if (!url) return null;
+  
+  const patterns = [
+    /(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\n?#]+)/,
+    /youtube\.com\/results\?search_query=/
+  ];
+  
+  for (let pattern of patterns) {
+    const match = url.match(pattern);
+    if (match && match[1]) return match[1];
+  }
+  
+  return null;
+};
 
 const ProductDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { addToCart } = useCart();
+  const { user, token } = useAuth();
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [quantity, setQuantity] = useState(1);
   const [added, setAdded] = useState(false);
   const [isFavorite, setIsFavorite] = useState(false);
+  const [videoLoading, setVideoLoading] = useState(false);
 
   useEffect(() => {
     const fetchProduct = async () => {
@@ -38,15 +62,46 @@ const ProductDetails = () => {
         setLoading(true);
         const response = await fetch(`${API_URL}/fish/${id}`);
         const data = await response.json();
+        
+        console.log("📦 Product Data Received:", data);
+        console.log("🖼️  Image:", data.fish?.image || data.image);
+        console.log("🎥 Recipe Videos:", data.fish?.recipeVideos || data.recipeVideos);
 
         if (!response.ok) {
           throw new Error(data.message || "Product not found");
         }
 
-        setProduct(data.fish || data);
+        const productData = data.fish || data;
+        setProduct(productData);
         setError("");
+        
+        // If no recipe videos yet, set it as loading and refetch after 5 seconds
+        if (!productData.recipeVideos || productData.recipeVideos.length === 0) {
+          console.log("⏳ Recipe videos are being generated in background...");
+          setVideoLoading(true);
+          
+          setTimeout(async () => {
+            try {
+              const refreshResponse = await fetch(`${API_URL}/fish/${id}`);
+              const refreshData = await refreshResponse.json();
+              const refreshedProduct = refreshData.fish || refreshData;
+              
+              console.log("🔄 Refreshed Product:", refreshedProduct);
+              console.log("🎥 Updated Recipe Videos:", refreshedProduct.recipeVideos);
+              
+              if (refreshedProduct.recipeVideos && refreshedProduct.recipeVideos.length > 0) {
+                setProduct(refreshedProduct);
+                console.log("✅ Recipe videos loaded!");
+              }
+            } catch (err) {
+              console.error("Error refreshing product:", err);
+            } finally {
+              setVideoLoading(false);
+            }
+          }, 5000);
+        }
       } catch (err) {
-        console.error("Error fetching product:", err);
+        console.error("❌ Error fetching product:", err);
         setError(err.message || "Failed to load product details");
         setProduct(null);
       } finally {
@@ -60,6 +115,12 @@ const ProductDetails = () => {
   }, [id]);
 
   const handleAddToCart = () => {
+    if (!token || !user) {
+      console.log("🚫 User not authenticated. Redirecting to login...");
+      navigate("/login", { state: { from: "cart", message: "Please login to add items to cart" } });
+      return;
+    }
+
     for (let i = 0; i < quantity; i++) {
       addToCart(product);
     }
@@ -319,8 +380,11 @@ const ProductDetails = () => {
                 className={`flex-1 py-3 px-6 rounded-xl text-white font-semibold transition-all duration-300 flex items-center justify-center gap-2 shadow-lg ${
                   added
                     ? "bg-emerald-500 hover:bg-emerald-600"
+                    : !token || !user
+                    ? "bg-slate-400 hover:bg-slate-500 cursor-pointer"
                     : "bg-sky-500 hover:bg-sky-600"
                 }`}
+                title={!token || !user ? "Login to add items to cart" : ""}
               >
                 {added ? (
                   <>
@@ -330,11 +394,34 @@ const ProductDetails = () => {
                 ) : (
                   <>
                     <ShoppingCart className="w-5 h-5" />
-                    Add to Cart
+                    {!token || !user ? "Login to Add to Cart" : "Add to Cart"}
                   </>
                 )}
               </motion.button>
             </div>
+
+            {/* Authentication Alert */}
+            {!token || !user ? (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3"
+              >
+                <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <p className="font-semibold text-amber-900">Login Required</p>
+                  <p className="text-amber-800 text-sm mt-1">
+                    Please login to your account to add items to cart and complete your purchase.
+                  </p>
+                  <button
+                    onClick={() => navigate("/login")}
+                    className="mt-2 text-sm font-semibold text-amber-600 hover:text-amber-700 underline"
+                  >
+                    Go to Login →
+                  </button>
+                </div>
+              </motion.div>
+            ) : null}
 
             {/* Share */}
             <button className="w-full py-3 px-4 rounded-xl border-2 border-slate-200 text-slate-900 font-semibold hover:bg-slate-50 transition-all duration-300 flex items-center justify-center gap-2">
@@ -343,6 +430,114 @@ const ProductDetails = () => {
             </button>
           </motion.div>
         </div>
+
+        {/* Recipe Videos Section */}
+        {product.recipeVideos && product.recipeVideos.length > 0 || videoLoading ? (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            className="mt-16 border-t border-slate-200 pt-12"
+          >
+            <h3 className="text-2xl font-bold text-slate-900 mb-8">
+              🍳 Cooking Recipes with {product.name}
+            </h3>
+            
+            {videoLoading && (!product.recipeVideos || product.recipeVideos.length === 0) ? (
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-lg p-12 flex flex-col items-center justify-center">
+                <Loader className="w-8 h-8 text-sky-500 animate-spin mb-4" />
+                <p className="text-slate-600 text-center">
+                  Finding the perfect recipe videos for {product.name}...
+                </p>
+                <p className="text-slate-400 text-sm mt-2">
+                  Powered by Google Gemini AI
+                </p>
+              </div>
+            ) : product.recipeVideos && product.recipeVideos.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {product.recipeVideos.map((video, index) => (
+                  <motion.div
+                    key={video.id || index}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.1 }}
+                    className="group bg-white rounded-2xl border border-slate-200 shadow-lg overflow-hidden hover:shadow-xl transition-all duration-300"
+                  >
+                    {/* Video Thumbnail */}
+                    <a
+                      href={video.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="relative w-full pt-[56.25%] bg-gradient-to-br from-slate-900 to-sky-900 flex items-center justify-center overflow-hidden block"
+                    >
+                      {/* Thumbnail Image */}
+                      {video.thumbnailMax || video.thumbnailHQ || video.thumbnail ? (
+                        <img
+                          src={video.thumbnailMax || video.thumbnailHQ || video.thumbnail}
+                          alt={video.title}
+                          className="absolute inset-0 w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                          onError={(e) => {
+                            // Fallback if image fails to load
+                            e.target.style.display = "none";
+                          }}
+                        />
+                      ) : null}
+                      
+                      {/* Overlay */}
+                      <div className="absolute inset-0 bg-black/30 group-hover:bg-black/50 transition-all flex items-center justify-center">
+                        <div className="w-16 h-16 rounded-full bg-red-500/80 group-hover:bg-red-600 flex items-center justify-center transform group-hover:scale-110 transition-transform">
+                          <Play className="w-7 h-7 text-white fill-white ml-1" />
+                        </div>
+                      </div>
+                      
+                      {/* Recipe Badge */}
+                      <p className="absolute top-4 right-4 bg-red-500 text-white px-3 py-1 rounded-full text-sm font-semibold">
+                        Recipe {index + 1}
+                      </p>
+                      
+                      {/* Duration Badge */}
+                      {video.duration && video.duration !== "00:00" && (
+                        <p className="absolute bottom-4 right-4 bg-black/70 text-white px-2 py-1 rounded text-xs font-semibold">
+                          {video.duration}
+                        </p>
+                      )}
+                    </a>
+
+                    {/* Content */}
+                    <div className="p-6">
+                      <h4 className="text-lg font-bold text-slate-900 mb-2 line-clamp-2">
+                        {video.title}
+                      </h4>
+                      <p className="text-slate-600 text-sm mb-3 line-clamp-2">
+                        {video.description}
+                      </p>
+                      
+                      {/* Channel Info */}
+                      {video.channel && (
+                        <p className="text-xs text-slate-500 mb-4 flex items-center gap-1">
+                          <User className="w-3 h-3" />
+                          {video.channel}
+                        </p>
+                      )}
+
+                      {/* Watch Button */}
+                      <a
+                        href={video.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-2 w-full justify-center px-4 py-3 rounded-xl bg-red-500 hover:bg-red-600 text-white font-semibold transition-all duration-300 transform hover:scale-105"
+                      >
+                        <Play className="w-4 h-4 fill-white" />
+                        Watch on YouTube
+                        <ExternalLink className="w-4 h-4" />
+                      </a>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            ) : null}
+          </motion.div>
+        ) : null}
 
         {/* Seller Info */}
         <motion.div

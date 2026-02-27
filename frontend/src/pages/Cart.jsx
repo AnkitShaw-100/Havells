@@ -7,15 +7,18 @@ import {
   ArrowRight,
   Leaf,
   Truck,
+  AlertCircle,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { useCart } from "@/context/CartContext";
+import { useAuth } from "@/context/AuthContext";
 
 const Cart = () => {
   const navigate = useNavigate();
   const { items, removeFromCart, updateQuantity, clearCart, totalPrice } = useCart();
+  const { user, token } = useAuth();
 
   // Calculate totals
   const subtotal = items.reduce(
@@ -274,11 +277,38 @@ const Cart = () => {
 
               {/* Checkout Button */}
               <div className="p-6 border-t border-slate-200 space-y-3">
+                {!token || !user ? (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3 mb-3"
+                  >
+                    <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                    <div className="flex-1">
+                      <p className="font-semibold text-amber-900">Login Required</p>
+                      <p className="text-amber-800 text-sm mt-1">
+                        Please login to proceed with checkout.
+                      </p>
+                      <button
+                        onClick={() => navigate("/login")}
+                        className="mt-2 text-sm font-semibold text-amber-600 hover:text-amber-700 underline"
+                      >
+                        Go to Login →
+                      </button>
+                    </div>
+                  </motion.div>
+                ) : null}
+
                 <button
-                  onClick={() => navigate("/checkout")}
-                  className="w-full py-3.5 px-4 rounded-xl bg-sky-500 hover:bg-sky-600 text-white font-semibold transition-all duration-300 shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
+                  onClick={() => navigate(!token || !user ? "/login" : "/checkout")}
+                  disabled={false}
+                  className={`w-full py-3.5 px-4 rounded-xl text-white font-semibold transition-all duration-300 shadow-lg hover:shadow-xl flex items-center justify-center gap-2 ${
+                    !token || !user
+                      ? "bg-slate-400 hover:bg-slate-500 cursor-pointer"
+                      : "bg-sky-500 hover:bg-sky-600"
+                  }`}
                 >
-                  Proceed to Checkout
+                  {!token || !user ? "Login to Checkout" : "Proceed to Checkout"}
                   <ArrowRight className="w-4 h-4" />
                 </button>
                 <button

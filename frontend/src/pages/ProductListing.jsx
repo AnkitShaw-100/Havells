@@ -19,9 +19,10 @@ const ProductListing = () => {
     unit: "kg",
     freshness: "Super Fresh (Today)",
     harvestDate: "",
-    image: "",
+    image: null,
     origin: "",
   });
+  const [imagePreview, setImagePreview] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -36,11 +37,29 @@ const ProductListing = () => {
   const units = ["kg", "lb", "pieces", "dozen"];
 
   const handleChange = (e) => {
-    const { name, value } = e.target;
-    setForm((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
+    const { name, value, type, files } = e.target;
+    
+    if (type === "file") {
+      const file = files[0];
+      setForm((prev) => ({
+        ...prev,
+        [name]: file,
+      }));
+      
+      // Create image preview
+      if (file) {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setImagePreview(reader.result);
+        };
+        reader.readAsDataURL(file);
+      }
+    } else {
+      setForm((prev) => ({
+        ...prev,
+        [name]: value,
+      }));
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -50,26 +69,48 @@ const ProductListing = () => {
     setLoading(true);
 
     try {
+      // Create FormData to handle file upload
+      const formData = new FormData();
+      formData.append("name", form.name);
+      formData.append("description", form.description);
+      formData.append("category", form.category);
+      formData.append("price", parseFloat(form.price));
+      formData.append("quantity", parseInt(form.quantity));
+      formData.append("unit", form.unit);
+      formData.append("freshness", form.freshness);
+      formData.append("harvestDate", new Date(form.harvestDate).toISOString());
+      formData.append("origin", form.origin);
+      
+      // Add image file if selected
+      if (form.image) {
+        console.log("📁 Image file selected:", form.image.name, form.image.type, form.image.size);
+        formData.append("image", form.image);
+      } else {
+        console.log("⚠️  No image file selected");
+      }
+
+      console.log("📤 Submitting form with fields:", {
+        name: form.name,
+        hasImage: !!form.image,
+        imageName: form.image?.name
+      });
+
       const response = await fetch(`${API_URL}/fish`, {
         method: "POST",
         headers: {
-          "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({
-          ...form,
-          price: parseFloat(form.price),
-          quantity: parseInt(form.quantity),
-          harvestDate: new Date(form.harvestDate).toISOString(),
-        }),
+        body: formData,
       });
 
       const data = await response.json();
+      console.log("📥 Response from server:", data);
 
       if (!response.ok) {
         throw new Error(data.message || "Failed to list product");
       }
 
+      console.log("✅ Product created successfully:", data.fish);
       setSuccess("Product listed successfully!");
       setForm({
         name: "",
@@ -80,14 +121,16 @@ const ProductListing = () => {
         unit: "kg",
         freshness: "Super Fresh (Today)",
         harvestDate: "",
-        image: "",
+        image: null,
         origin: "",
       });
+      setImagePreview(null);
 
       setTimeout(() => {
         navigate("/seller/dashboard");
       }, 2000);
     } catch (err) {
+      console.error("❌ Error submitting form:", err);
       setError(err.message || "Failed to list product");
     } finally {
       setLoading(false);
@@ -302,20 +345,48 @@ const ProductListing = () => {
               />
             </div>
 
-            {/* Image URL */}
+            {/* Image Upload */}
             <div>
               <label className="block text-sm font-semibold text-slate-700 mb-2">
-                Image URL
+                Product Image
               </label>
-              <input
-                type="url"
-                name="image"
-                value={form.image}
-                onChange={handleChange}
-                disabled={loading}
-                placeholder="https://example.com/image.jpg"
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-sky-400 focus:border-transparent outline-none disabled:bg-slate-50"
-              />
+              <div className="relative">
+                <input
+                  type="file"
+                  name="image"
+                  onChange={handleChange}
+                  disabled={loading}
+                  accept="image/*"
+                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-sky-400 focus:border-transparent outline-none disabled:bg-slate-50"
+                />
+                <p className="text-xs text-slate-500 mt-1">
+                  Supported: JPG, PNG, GIF, WebP (Max 10MB)
+                </p>
+              </div>
+              
+              {/* Image Preview */}
+              {imagePreview && (
+                <div className="mt-4">
+                  <p className="text-sm font-semibold text-slate-700 mb-2">Preview:</p>
+                  <div className="relative w-full h-48 rounded-lg overflow-hidden bg-slate-100">
+                    <img
+                      src={imagePreview}
+                      alt="Preview"
+                      className="w-full h-full object-cover"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setImagePreview(null);
+                        setForm((prev) => ({ ...prev, image: null }));
+                      }}
+                      className="absolute top-2 right-2 p-1 bg-red-500 text-white rounded-full hover:bg-red-600 transition"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Submit Button */}

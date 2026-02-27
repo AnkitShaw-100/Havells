@@ -62,6 +62,21 @@ const fishSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+    recipeVideos: [
+      {
+        id: Number,
+        title: String,
+        description: String,
+        searchQuery: String,
+        url: String,
+        videoId: String,
+        thumbnail: String,
+        thumbnailHQ: String,
+        thumbnailMax: String,
+        channel: String,
+        duration: String,
+      }
+    ],
   },
   {
     timestamps: true,

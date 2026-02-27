@@ -1,6 +1,7 @@
 import express from "express";
 import { body } from "express-validator";
 import { protectUser, checkSeller } from "../middleware/auth.js";
+import upload from "../middleware/upload.js";
 import {
   addFish,
   getAllFish,
@@ -24,6 +25,7 @@ router.post(
   "/",
   protectUser,
   checkSeller,
+  upload.single("image"),
   [
     body("name").trim().notEmpty().withMessage("Fish name is required"),
     body("description")
@@ -63,6 +65,7 @@ router.put(
   "/:id",
   protectUser,
   checkSeller,
+  upload.single("image"),
   [
     body("name").optional().trim().notEmpty(),
     body("description").optional().trim().notEmpty(),
