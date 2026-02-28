@@ -5,15 +5,59 @@ import dotenv from "dotenv";
 dotenv.config();
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
+const parseJsonFromModelResponse = (rawText) => {
+  if (!rawText || typeof rawText !== "string") {
+    throw new Error("Empty or non-string model response");
+  }
+
+  const normalized = rawText.trim();
+  const candidates = [];
+
+  candidates.push(normalized);
+
+  const withoutCodeFence = normalized
+    .replace(/^```(?:json)?\s*/i, "")
+    .replace(/\s*```$/i, "")
+    .trim();
+  if (withoutCodeFence !== normalized) {
+    candidates.push(withoutCodeFence);
+  }
+
+  const firstBrace = normalized.indexOf("{");
+  const lastBrace = normalized.lastIndexOf("}");
+  if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+    candidates.push(normalized.slice(firstBrace, lastBrace + 1));
+  }
+
+  const firstBracket = normalized.indexOf("[");
+  const lastBracket = normalized.lastIndexOf("]");
+  if (firstBracket !== -1 && lastBracket !== -1 && lastBracket > firstBracket) {
+    candidates.push(normalized.slice(firstBracket, lastBracket + 1));
+  }
+
+  let lastError;
+  for (const candidate of candidates) {
+    try {
+      return JSON.parse(candidate);
+    } catch (err) {
+      lastError = err;
+    }
+  }
+
+  throw new Error(
+    lastError?.message || "Unable to parse model response as JSON"
+  );
+};
+
 /**
  * Analyze fish freshness using Gemini Vision API
  * @param {Buffer|string} imageInput - Image buffer or URL to analyze
  * @returns {Promise<Object>} Analysis result with freshness score and details
-*/
+ */
 export const analyzeFishFreshnessWithGemini = async (imageInput) => {
   try {
     console.log("\n========== GEMINI VISION ANALYSIS START ==========");
-    console.log("GEMINI API KEY",process.env.GEMINI_API_KEY)
+    console.log("GEMINI API KEY", process.env.GEMINI_API_KEY);
 
     if (!process.env.GEMINI_API_KEY) {
       console.error(
@@ -27,7 +71,7 @@ export const analyzeFishFreshnessWithGemini = async (imageInput) => {
     console.log("✅ GEMINI_API_KEY found");
 
     console.log("🤖 Starting Gemini Vision analysis for fish freshness...");
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
     console.log("✅ Model initialized: gemini-2.0-flash");
 
     // Convert image buffer to base64 or use URL
@@ -131,7 +175,11 @@ IMPORTANT: Look at the actual FISH in the image and assess:
 - Gills: Are visible gills red/pink? Or brown/gray?
 - Overall freshness based on visual inspection
 
-Respond ONLY with valid JSON (no markdown, no extra text):
+Respond with ONLY a raw JSON object.
+Do not wrap in markdown code fences.
+Do not prefix with json.
+Do not add commentary before or after.
+Output must start with { and end with }.
 {
   "freshnessScore": <number 0-100>,
   "isCertified": <boolean>,
@@ -160,7 +208,10 @@ Respond ONLY with valid JSON (no markdown, no extra text):
         try {
           console.log(`   Attempt ${attempt}/${MAX_RETRIES}...`);
           const timeoutPromise = new Promise((_, reject) =>
-            setTimeout(() => reject(new Error("Gemini API call timeout (30s)")), 30000)
+            setTimeout(
+              () => reject(new Error("Gemini API call timeout (30s)")),
+              30000
+            )
           );
           result = await Promise.race([
             model.generateContent([imageData, prompt]),
@@ -168,11 +219,16 @@ Respond ONLY with valid JSON (no markdown, no extra text):
           ]);
           break; // success, exit retry loop
         } catch (retryErr) {
-          const isRateLimit = retryErr.message?.includes("429") || retryErr.message?.includes("Too Many Requests") || retryErr.message?.includes("quota");
+          const isRateLimit =
+            retryErr.message?.includes("429") ||
+            retryErr.message?.includes("Too Many Requests") ||
+            retryErr.message?.includes("quota");
           if (isRateLimit && attempt < MAX_RETRIES) {
             const waitMs = Math.pow(2, attempt) * 2000; // 4s, 8s, 16s
-            console.warn(`⏳ Rate limited (429). Waiting ${waitMs / 1000}s before retry...`);
-            await new Promise(resolve => setTimeout(resolve, waitMs));
+            console.warn(
+              `⏳ Rate limited (429). Waiting ${waitMs / 1000}s before retry...`
+            );
+            await new Promise((resolve) => setTimeout(resolve, waitMs));
           } else {
             throw retryErr;
           }
@@ -203,7 +259,7 @@ Respond ONLY with valid JSON (no markdown, no extra text):
       let analysisResult;
 
       try {
-        analysisResult = JSON.parse(responseText);
+        analysisResult = parseJsonFromModelResponse(responseText);
       } catch (parseErr) {
         console.error("❌ Failed to parse JSON:", parseErr.message);
         console.error("   Response was:", responseText);
@@ -248,9 +304,14 @@ Respond ONLY with valid JSON (no markdown, no extra text):
         console.error("❌ TIMEOUT: Gemini API took too long (>30 seconds)");
         return getDefaultAnalysis("TIMEOUT");
       }
-      if (apiErr.message?.includes("429") || apiErr.message?.includes("quota")) {
+      if (
+        apiErr.message?.includes("429") ||
+        apiErr.message?.includes("quota")
+      ) {
         console.error("❌ RATE LIMITED: Gemini API free tier quota exhausted");
-        console.error("   ➡️  Get a new API key from https://aistudio.google.com/app/apikey");
+        console.error(
+          "   ➡️  Get a new API key from https://aistudio.google.com/app/apikey"
+        );
         console.error("   ➡️  Or wait for the daily quota to reset");
         return getDefaultAnalysis("QUOTA_EXHAUSTED");
       }
@@ -273,7 +334,10 @@ const getDefaultAnalysis = (errorReason) => {
   console.warn(`⚠️ FALLBACK ANALYSIS USED - Reason: ${errorReason}`);
   console.warn("ℹ️ This means the Gemini API is NOT working properly");
 
-  const isQuotaIssue = errorReason.includes("QUOTA") || errorReason.includes("429") || errorReason.includes("quota");
+  const isQuotaIssue =
+    errorReason.includes("QUOTA") ||
+    errorReason.includes("429") ||
+    errorReason.includes("quota");
   const eyesMsg = isQuotaIssue
     ? "⚠️ Gemini API quota exhausted — generate a new key or wait for reset"
     : "⚠️ ANALYSIS UNAVAILABLE - Check backend logs";
@@ -340,11 +404,15 @@ export const generateRecipeVideos = async (fishName) => {
           ]);
           break;
         } catch (retryErr) {
-          const isRateLimit = retryErr.message?.includes("429") || retryErr.message?.includes("quota");
+          const isRateLimit =
+            retryErr.message?.includes("429") ||
+            retryErr.message?.includes("quota");
           if (isRateLimit && attempt < MAX_RETRIES) {
             const waitMs = Math.pow(2, attempt) * 2000;
-            console.warn(`⏳ Rate limited. Waiting ${waitMs / 1000}s before retry ${attempt + 1}/${MAX_RETRIES}...`);
-            await new Promise(resolve => setTimeout(resolve, waitMs));
+            console.warn(
+              `⏳ Rate limited. Waiting ${waitMs / 1000}s before retry ${attempt + 1}/${MAX_RETRIES}...`
+            );
+            await new Promise((resolve) => setTimeout(resolve, waitMs));
           } else {
             throw retryErr;
           }
@@ -420,7 +488,10 @@ export const generateRecipeVideos = async (fishName) => {
       );
       return videosWithThumbnails;
     } catch (timeoutErr) {
-      console.warn(`⏱️  Timeout/error generating recipes for ${fishName}:`, timeoutErr.message);
+      console.warn(
+        `⏱️  Timeout/error generating recipes for ${fishName}:`,
+        timeoutErr.message
+      );
       return generateDefaultRecipesWithYouTube(fishName);
     }
   } catch (error) {
