@@ -77,6 +77,32 @@ const fishSchema = new mongoose.Schema(
         duration: String,
       }
     ],
+    mlAnalysis: {
+      freshnessScore: {
+        type: Number,
+        min: 0,
+        max: 100,
+        default: null,
+      },
+      isCertified: {
+        type: Boolean,
+        default: false,
+      },
+      analysisDetails: {
+        colorScore: Number,
+        textureScore: Number,
+        transparencyScore: Number,
+        eyesCondition: String,
+        smellIndicator: String,
+        overallQuality: String,
+        recommendations: String,
+        analyzedAt: Date,
+      },
+      mlModel: {
+        type: String,
+        default: "gemini-3.1-pro-preview",
+      },
+    },
   },
   {
     timestamps: true,

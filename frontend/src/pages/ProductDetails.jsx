@@ -29,17 +29,17 @@ const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 // Helper function to extract YouTube video ID
 const getYoutubeVideoId = (url) => {
   if (!url) return null;
-  
+
   const patterns = [
     /(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\n?#]+)/,
-    /youtube\.com\/results\?search_query=/
+    /youtube\.com\/results\?search_query=/,
   ];
-  
+
   for (let pattern of patterns) {
     const match = url.match(pattern);
     if (match && match[1]) return match[1];
   }
-  
+
   return null;
 };
 
@@ -62,10 +62,13 @@ const ProductDetails = () => {
         setLoading(true);
         const response = await fetch(`${API_URL}/fish/${id}`);
         const data = await response.json();
-        
+
         console.log("📦 Product Data Received:", data);
         console.log("🖼️  Image:", data.fish?.image || data.image);
-        console.log("🎥 Recipe Videos:", data.fish?.recipeVideos || data.recipeVideos);
+        console.log(
+          "🎥 Recipe Videos:",
+          data.fish?.recipeVideos || data.recipeVideos
+        );
 
         if (!response.ok) {
           throw new Error(data.message || "Product not found");
@@ -74,22 +77,31 @@ const ProductDetails = () => {
         const productData = data.fish || data;
         setProduct(productData);
         setError("");
-        
+
         // If no recipe videos yet, set it as loading and refetch after 5 seconds
-        if (!productData.recipeVideos || productData.recipeVideos.length === 0) {
+        if (
+          !productData.recipeVideos ||
+          productData.recipeVideos.length === 0
+        ) {
           console.log("⏳ Recipe videos are being generated in background...");
           setVideoLoading(true);
-          
+
           setTimeout(async () => {
             try {
               const refreshResponse = await fetch(`${API_URL}/fish/${id}`);
               const refreshData = await refreshResponse.json();
               const refreshedProduct = refreshData.fish || refreshData;
-              
+
               console.log("🔄 Refreshed Product:", refreshedProduct);
-              console.log("🎥 Updated Recipe Videos:", refreshedProduct.recipeVideos);
-              
-              if (refreshedProduct.recipeVideos && refreshedProduct.recipeVideos.length > 0) {
+              console.log(
+                "🎥 Updated Recipe Videos:",
+                refreshedProduct.recipeVideos
+              );
+
+              if (
+                refreshedProduct.recipeVideos &&
+                refreshedProduct.recipeVideos.length > 0
+              ) {
                 setProduct(refreshedProduct);
                 console.log("✅ Recipe videos loaded!");
               }
@@ -117,7 +129,9 @@ const ProductDetails = () => {
   const handleAddToCart = () => {
     if (!token || !user) {
       console.log("🚫 User not authenticated. Redirecting to login...");
-      navigate("/login", { state: { from: "cart", message: "Please login to add items to cart" } });
+      navigate("/login", {
+        state: { from: "cart", message: "Please login to add items to cart" },
+      });
       return;
     }
 
@@ -159,7 +173,9 @@ const ProductDetails = () => {
           <h1 className="text-3xl font-bold text-slate-900 mb-3">
             Product Not Found
           </h1>
-          <p className="text-slate-500 mb-8">{error || "This product doesn't exist"}</p>
+          <p className="text-slate-500 mb-8">
+            {error || "This product doesn't exist"}
+          </p>
           <button
             onClick={() => navigate("/explore")}
             className="inline-flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-semibold text-white bg-sky-500 hover:bg-sky-600 transition-all duration-300 shadow-lg"
@@ -199,7 +215,9 @@ const ProductDetails = () => {
             animate={{ opacity: 1, x: 0 }}
             className="bg-white rounded-2xl border border-slate-200 shadow-lg p-8 flex items-center justify-center h-96 sm:h-[500px]"
           >
-            {product.image && product.image !== "https://via.placeholder.com/300x200?text=Fish" ? (
+            {product.image &&
+            product.image !==
+              "https://via.placeholder.com/300x200?text=Fish" ? (
               <img
                 src={product.image}
                 alt={product.name}
@@ -249,7 +267,9 @@ const ProductDetails = () => {
                       className="w-4 h-4 text-amber-400 fill-amber-400"
                     />
                   ))}
-                  <span className="text-sm text-slate-600 ml-2">4.8 (240 reviews)</span>
+                  <span className="text-sm text-slate-600 ml-2">
+                    4.8 (240 reviews)
+                  </span>
                 </div>
               </div>
 
@@ -276,14 +296,204 @@ const ProductDetails = () => {
                 <p className="text-xs text-slate-500 uppercase tracking-wide mb-1">
                   Category
                 </p>
-                <p className="font-semibold text-slate-900">{product.category}</p>
+                <p className="font-semibold text-slate-900">
+                  {product.category}
+                </p>
               </div>
               <div className="bg-white rounded-xl border border-slate-200 p-4">
                 <p className="text-xs text-slate-500 uppercase tracking-wide mb-1">
                   Freshness
                 </p>
-                <p className="font-semibold text-slate-900">{product.freshness}</p>
+                <p className="font-semibold text-slate-900">
+                  {product.freshness}
+                </p>
               </div>
+
+              {/* ML Freshness Analysis */}
+              {product.mlAnalysis &&
+                product.mlAnalysis.freshnessScore !== null && (
+                  <>
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      className={`rounded-xl p-4 border-2 ${
+                        product.mlAnalysis.isCertified
+                          ? "bg-green-50 border-green-300"
+                          : "bg-amber-50 border-amber-300"
+                      }`}
+                    >
+                      <div className="flex items-start gap-3">
+                        <div
+                          className={`w-12 h-12 rounded-lg flex items-center justify-center font-bold text-lg ${
+                            product.mlAnalysis.isCertified
+                              ? "bg-green-200 text-green-900"
+                              : "bg-amber-200 text-amber-900"
+                          }`}
+                        >
+                          {product.mlAnalysis.freshnessScore}%
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-xs text-slate-500 uppercase tracking-wide font-semibold">
+                            🤖 ML Freshness Certificate
+                          </p>
+                          <p className="font-semibold text-slate-900 text-sm mt-1">
+                            {product.mlAnalysis.analysisDetails
+                              ?.overallQuality || "Verified Fresh"}
+                          </p>
+                          {product.mlAnalysis.isCertified && (
+                            <p className="text-xs text-green-700 font-semibold mt-1">
+                              ✅ Certified Fresh by AI Model
+                            </p>
+                          )}
+                          <p className="text-xs text-slate-500 mt-2">
+                            Analyzed by: {product.mlAnalysis.mlModel}
+                          </p>
+                        </div>
+                      </div>
+                    </motion.div>
+
+                    {/* ML Component Scores Breakdown */}
+                    {product.mlAnalysis.analysisDetails && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.1 }}
+                        className="bg-white rounded-xl border border-slate-200 p-4 space-y-4"
+                      >
+                        <p className="text-xs text-slate-500 uppercase tracking-wide font-semibold">
+                          🤖 AI Freshness Analysis
+                        </p>
+
+                        {/* Eyes Condition */}
+                        {product.mlAnalysis.analysisDetails.eyesCondition && (
+                          <div className="space-y-1">
+                            <div className="flex items-start gap-2">
+                              <span className="text-lg">👀</span>
+                              <div className="flex-1">
+                                <p className="text-xs text-slate-500 font-semibold">
+                                  Eyes Condition
+                                </p>
+                                <p className="text-sm text-slate-700">
+                                  {
+                                    product.mlAnalysis.analysisDetails
+                                      .eyesCondition
+                                  }
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Color Assessment */}
+                        {product.mlAnalysis.analysisDetails.colorScore && (
+                          <div className="space-y-1">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <span className="text-lg">🎨</span>
+                                <span className="text-sm text-slate-700">
+                                  Color Assessment
+                                </span>
+                              </div>
+                              <span className="text-sm font-semibold text-slate-900">
+                                {product.mlAnalysis.analysisDetails.colorScore}%
+                              </span>
+                            </div>
+                            <div className="w-full bg-slate-200 rounded-full h-2">
+                              <div
+                                className="bg-gradient-to-r from-red-400 to-yellow-400 h-2 rounded-full"
+                                style={{
+                                  width: `${product.mlAnalysis.analysisDetails.colorScore}%`,
+                                }}
+                              />
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Texture Analysis */}
+                        {product.mlAnalysis.analysisDetails.textureScore && (
+                          <div className="space-y-1">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <span className="text-lg">✨</span>
+                                <span className="text-sm text-slate-700">
+                                  Texture & Firmness
+                                </span>
+                              </div>
+                              <span className="text-sm font-semibold text-slate-900">
+                                {
+                                  product.mlAnalysis.analysisDetails
+                                    .textureScore
+                                }
+                                %
+                              </span>
+                            </div>
+                            <div className="w-full bg-slate-200 rounded-full h-2">
+                              <div
+                                className="bg-gradient-to-r from-blue-400 to-cyan-400 h-2 rounded-full"
+                                style={{
+                                  width: `${product.mlAnalysis.analysisDetails.textureScore}%`,
+                                }}
+                              />
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Smell Indicator */}
+                        {product.mlAnalysis.analysisDetails.smellIndicator && (
+                          <div className="space-y-1">
+                            <div className="flex items-start gap-2">
+                              <span className="text-lg">👃</span>
+                              <div className="flex-1">
+                                <p className="text-xs text-slate-500 font-semibold">
+                                  Smell Indicator
+                                </p>
+                                <p className="text-sm text-slate-700">
+                                  {
+                                    product.mlAnalysis.analysisDetails
+                                      .smellIndicator
+                                  }
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Overall Quality */}
+                        {product.mlAnalysis.analysisDetails.overallQuality && (
+                          <div className="pt-2 border-t border-slate-200">
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm text-slate-700">
+                                Quality Grade
+                              </span>
+                              <span className="inline-block px-3 py-1 bg-green-100 text-green-700 text-sm font-semibold rounded-full">
+                                {
+                                  product.mlAnalysis.analysisDetails
+                                    .overallQuality
+                                }
+                              </span>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Recommendations */}
+                        {product.mlAnalysis.analysisDetails.recommendations && (
+                          <div className="pt-2 border-t border-slate-200">
+                            <p className="text-xs text-slate-500 font-semibold mb-1">
+                              💡 Storage & Usage
+                            </p>
+                            <p className="text-sm text-slate-700">
+                              {
+                                product.mlAnalysis.analysisDetails
+                                  .recommendations
+                              }
+                            </p>
+                          </div>
+                        )}
+                      </motion.div>
+                    )}
+                  </>
+                )}
+
               <div className="bg-white rounded-xl border border-slate-200 p-4">
                 <p className="text-xs text-slate-500 uppercase tracking-wide mb-1">
                   Available
@@ -329,7 +539,9 @@ const ProductDetails = () => {
                   <Shield className="w-5 h-5 text-blue-600" />
                 </div>
                 <div className="text-sm">
-                  <p className="font-semibold text-slate-900">Quality Assured</p>
+                  <p className="font-semibold text-slate-900">
+                    Quality Assured
+                  </p>
                   <p className="text-slate-500 text-xs">100% fresh guarantee</p>
                 </div>
               </div>
@@ -381,8 +593,8 @@ const ProductDetails = () => {
                   added
                     ? "bg-emerald-500 hover:bg-emerald-600"
                     : !token || !user
-                    ? "bg-slate-400 hover:bg-slate-500 cursor-pointer"
-                    : "bg-sky-500 hover:bg-sky-600"
+                      ? "bg-slate-400 hover:bg-slate-500 cursor-pointer"
+                      : "bg-sky-500 hover:bg-sky-600"
                 }`}
                 title={!token || !user ? "Login to add items to cart" : ""}
               >
@@ -411,7 +623,8 @@ const ProductDetails = () => {
                 <div className="flex-1">
                   <p className="font-semibold text-amber-900">Login Required</p>
                   <p className="text-amber-800 text-sm mt-1">
-                    Please login to your account to add items to cart and complete your purchase.
+                    Please login to your account to add items to cart and
+                    complete your purchase.
                   </p>
                   <button
                     onClick={() => navigate("/login")}
@@ -432,7 +645,8 @@ const ProductDetails = () => {
         </div>
 
         {/* Recipe Videos Section */}
-        {product.recipeVideos && product.recipeVideos.length > 0 || videoLoading ? (
+        {(product.recipeVideos && product.recipeVideos.length > 0) ||
+        videoLoading ? (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -442,8 +656,9 @@ const ProductDetails = () => {
             <h3 className="text-2xl font-bold text-slate-900 mb-8">
               🍳 Cooking Recipes with {product.name}
             </h3>
-            
-            {videoLoading && (!product.recipeVideos || product.recipeVideos.length === 0) ? (
+
+            {videoLoading &&
+            (!product.recipeVideos || product.recipeVideos.length === 0) ? (
               <div className="bg-white rounded-2xl border border-slate-200 shadow-lg p-12 flex flex-col items-center justify-center">
                 <Loader className="w-8 h-8 text-sky-500 animate-spin mb-4" />
                 <p className="text-slate-600 text-center">
@@ -471,9 +686,15 @@ const ProductDetails = () => {
                       className="relative w-full pt-[56.25%] bg-gradient-to-br from-slate-900 to-sky-900 flex items-center justify-center overflow-hidden block"
                     >
                       {/* Thumbnail Image */}
-                      {video.thumbnailMax || video.thumbnailHQ || video.thumbnail ? (
+                      {video.thumbnailMax ||
+                      video.thumbnailHQ ||
+                      video.thumbnail ? (
                         <img
-                          src={video.thumbnailMax || video.thumbnailHQ || video.thumbnail}
+                          src={
+                            video.thumbnailMax ||
+                            video.thumbnailHQ ||
+                            video.thumbnail
+                          }
                           alt={video.title}
                           className="absolute inset-0 w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
                           onError={(e) => {
@@ -482,19 +703,19 @@ const ProductDetails = () => {
                           }}
                         />
                       ) : null}
-                      
+
                       {/* Overlay */}
                       <div className="absolute inset-0 bg-black/30 group-hover:bg-black/50 transition-all flex items-center justify-center">
                         <div className="w-16 h-16 rounded-full bg-red-500/80 group-hover:bg-red-600 flex items-center justify-center transform group-hover:scale-110 transition-transform">
                           <Play className="w-7 h-7 text-white fill-white ml-1" />
                         </div>
                       </div>
-                      
+
                       {/* Recipe Badge */}
                       <p className="absolute top-4 right-4 bg-red-500 text-white px-3 py-1 rounded-full text-sm font-semibold">
                         Recipe {index + 1}
                       </p>
-                      
+
                       {/* Duration Badge */}
                       {video.duration && video.duration !== "00:00" && (
                         <p className="absolute bottom-4 right-4 bg-black/70 text-white px-2 py-1 rounded text-xs font-semibold">
@@ -511,7 +732,7 @@ const ProductDetails = () => {
                       <p className="text-slate-600 text-sm mb-3 line-clamp-2">
                         {video.description}
                       </p>
-                      
+
                       {/* Channel Info */}
                       {video.channel && (
                         <p className="text-xs text-slate-500 mb-4 flex items-center gap-1">

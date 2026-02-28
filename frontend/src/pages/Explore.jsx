@@ -73,6 +73,7 @@ const Explore = () => {
           unit: item.unit,
           category: item.category,
           sellerId: item.sellerId,
+          mlAnalysis: item.mlAnalysis,
         }));
 
         setFishData(transformedFish);
@@ -222,10 +223,23 @@ return (
                       {fish.badge.label}
                     </span>
 
+                    {/* ML Freshness Score Badge */}
+                    {fish.mlAnalysis && fish.mlAnalysis.freshnessScore !== null && (
+                      <span className={`absolute top-3 right-3 w-10 h-10 rounded-xl flex items-center justify-center border font-bold text-xs shadow-lg ${
+                        fish.mlAnalysis.isCertified
+                          ? "bg-green-500 text-white border-green-600"
+                          : "bg-amber-500 text-white border-amber-600"
+                      }`}>
+                        {fish.mlAnalysis.freshnessScore}%
+                      </span>
+                    )}
+
                     {/* Sustainability icon */}
-                    <span className="absolute top-3 right-3 w-7 h-7 rounded-xl bg-white/80 backdrop-blur-sm flex items-center justify-center border border-white/60 shadow-sm">
-                      <Leaf className="w-3.5 h-3.5 text-emerald-500" />
-                    </span>
+                    {(!fish.mlAnalysis || fish.mlAnalysis.freshnessScore === null) && (
+                      <span className="absolute top-3 right-3 w-7 h-7 rounded-xl bg-white/80 backdrop-blur-sm flex items-center justify-center border border-white/60 shadow-sm">
+                        <Leaf className="w-3.5 h-3.5 text-emerald-500" />
+                      </span>
+                    )}
                   </div>
 
                   {/* Card body */}
@@ -248,7 +262,7 @@ return (
                       </div>
                     </div>
 
-                    {/* Tags */}
+                    {/* Tags + ML Quality */}
                     <div className="flex flex-wrap gap-1.5 mb-4 mt-2">
                       {fish.tags.map((tag) => (
                         <span
@@ -258,6 +272,11 @@ return (
                           {tag}
                         </span>
                       ))}
+                      {fish.mlAnalysis && fish.mlAnalysis.isCertified && (
+                        <span className="text-[10px] font-bold px-2 py-1 rounded-lg bg-green-50 text-green-700 border border-green-200 whitespace-nowrap flex items-center gap-1">
+                          ✅ AI Certified
+                        </span>
+                      )}
                     </div>
 
                     {/* Price + Add to Cart */}

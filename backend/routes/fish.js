@@ -1,7 +1,7 @@
 import express from "express";
 import { body } from "express-validator";
 import { protectUser, checkSeller } from "../middleware/auth.js";
-import upload from "../middleware/upload.js";
+import upload, { uploadWithLogging } from "../middleware/upload.js";
 import {
   addFish,
   getAllFish,
@@ -11,9 +11,44 @@ import {
   deleteFish,
   searchFish,
   getSellerAnalytics,
+  testMLAnalysis,
 } from "../controllers/fishController.js";
 
 const router = express.Router();
+
+// 🧪 TEST ENDPOINT - Verify image upload and ML analysis
+router.post("/test/upload", uploadWithLogging("image"), (req, res) => {
+  console.log("\n🧪 TEST UPLOAD ENDPOINT HIT");
+  console.log("Request body:", req.body);
+  console.log("Request file:", req.file ? "✅ YES" : "❌ NO");
+  
+  if (req.file) {
+    console.log("File details:", {
+      originalname: req.file.originalname,
+      secure_url: req.file.secure_url,
+      url: req.file.url,
+      public_id: req.file.public_id,
+    });
+    
+    return res.status(200).json({
+      message: "✅ TEST PASSED: Image uploaded successfully",
+      file: {
+        filename: req.file.originalname,
+        size: req.file.size,
+        cloudinaryUrl: req.file.secure_url || req.file.url,
+        publicId: req.file.public_id,
+      },
+    });
+  } else {
+    return res.status(400).json({
+      message: "❌ TEST FAILED: No file received",
+      hint: "Check that your form has enctype='multipart/form-data' and the file input name is 'image'",
+    });
+  }
+});
+
+// 🧪 TEST ENDPOINT - Test ML analysis on image URL
+router.post("/test/ml-analysis", testMLAnalysis);
 
 // Public routes
 router.get("/", getAllFish);
@@ -25,7 +60,7 @@ router.post(
   "/",
   protectUser,
   checkSeller,
-  upload.single("image"),
+  uploadWithLogging("image"),
   [
     body("name").trim().notEmpty().withMessage("Fish name is required"),
     body("description")
@@ -65,7 +100,7 @@ router.put(
   "/:id",
   protectUser,
   checkSeller,
-  upload.single("image"),
+  uploadWithLogging("image"),
   [
     body("name").optional().trim().notEmpty(),
     body("description").optional().trim().notEmpty(),

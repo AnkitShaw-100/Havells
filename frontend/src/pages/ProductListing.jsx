@@ -11,16 +11,16 @@ const ProductListing = () => {
   const { isSeller, token } = useAuth();
   const navigate = useNavigate();
   const [form, setForm] = useState({
-    name: "",
-    description: "",
+    name: "fish 22",
+    description: "fqefqf",
     category: "Fresh Water",
-    price: "",
-    quantity: "",
+    price: "54",
+    quantity: "78",
     unit: "kg",
     freshness: "Super Fresh (Today)",
     harvestDate: "",
     image: null,
-    origin: "",
+    origin: "kolkhuyu",
   });
   const [imagePreview, setImagePreview] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -112,23 +112,23 @@ const ProductListing = () => {
 
       console.log("✅ Product created successfully:", data.fish);
       setSuccess("Product listed successfully!");
-      setForm({
-        name: "",
-        description: "",
-        category: "Fresh Water",
-        price: "",
-        quantity: "",
-        unit: "kg",
-        freshness: "Super Fresh (Today)",
-        harvestDate: "",
-        image: null,
-        origin: "",
-      });
+      // setForm({
+      //   name: "",
+      //   description: "",
+      //   category: "Fresh Water",
+      //   price: "",
+      //   quantity: "",
+      //   unit: "kg",
+      //   freshness: "Super Fresh (Today)",
+      //   harvestDate: "",
+      //   image: null,
+      //   origin: "",
+      // });
       setImagePreview(null);
 
-      setTimeout(() => {
-        navigate("/seller/dashboard");
-      }, 2000);
+      // setTimeout(() => {
+      //   navigate("/seller/dashboard");
+      // }, 2000);
     } catch (err) {
       console.error("❌ Error submitting form:", err);
       setError(err.message || "Failed to list product");
